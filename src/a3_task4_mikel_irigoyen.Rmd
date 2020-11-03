@@ -1,0 +1,107 @@
+---
+title: "a3_task4_mikel_irigoyen.Rmd"
+author: "Mikel irigoyen"
+date: "11/1/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE,
+                      warning = FALSE)
+library(tidyverse)
+library(janitor)
+library(here)
+library(lubridate)
+```
+## In this section wecompare the mean size of purple urchins in CONTROL (no giant kelp removal) or ANNUAL (annual kelp removal) sections of Naples Reef in January 2010. 
+
+- here i read in the data and clean_names
+```{r}
+urchins <- read_csv(here("data", "urchins.csv")) %>% 
+  clean_names()
+```
+###Wrangling data to only include Naples Reef observations for purple urchins observed in January 2010
+
+- Included some previously used code from task 3 
+
+- Began by using lubridate to format dates 
+
+- Then used case_when() to refer to NAPL by its full name in new column
+
+- After that used case_when() to create annual and control in its own column
+
+- Then used filter() to only see Naples observations for the month/year that we are looking for.
+```{r}
+naples_obs <- urchins %>% 
+  
+ mutate(date = mdy(date), 
+        month = month(date),  
+        year = year(date),
+        site_full = case_when(site == "NAPL" ~ "Naples Reef")) %>%
+  mutate(treatment = case_when(treatment == "ANNUAL" ~ "annual", treatment == "CONTROL" ~ "control")) %>% 
+  filter(common_name == "Purple Urchin", site == "NAPL",
+         month == 1, year == 2010)
+
+  
+```
+## Histograms and QQ-plots
+
+- Using these to look at the size distribution for each of the treatments (Control and Annual) in order to assess normality
+
+- First up is the histogram, used facet_wrap() to get separate plots for both treatment types
+```{r}
+ggplot(naples_obs, aes(size)) +
+  geom_histogram()+
+  facet_wrap(~treatment)
+```
+
+- Next we do the qq-plot
+
+- Same procedure that was used on the histogram to get results
+
+- One difference being, qq-plots require knowing a sample, so must include "sample = size" 
+
+```{r}
+ggplot(naples_obs, aes(sample = size))+
+  geom_qq()+
+  facet_wrap(~treatment)
+```
+
+- The histograms show a relatively normal distribution and the linear trend in the qq-plots do as well. This shows normality between the two types of urchins.
+
+## Summary Statistics Time!!!
+- Here we create a basic table of descriptive statistics for both groups that will include the mean, standard deviation, and sample size
+
+```{r}
+purp_urch_stats <- naples_obs %>% 
+  group_by(treatment) %>% 
+  summarize(naples_mean = mean(size),
+            naples_sd = sd(size),
+            count = n())
+print(purp_urch_stats)
+```
+
+## T-test time
+- Here we perform a two-sample t-test to compare means between the two groups
+
+- Created separate vectors differentiated by "treatment"
+
+- Pull by "size"
+
+- Then do a t-test with annual vs. control
+
+```{r}
+ann_urchins <- naples_obs %>% 
+  filter(treatment == "annual") %>% 
+  pull(size)
+```
+
+```{r}
+con_urchins <- naples_obs %>% 
+  filter(treatment == "control") %>% 
+  pull(size)
+```
+```{r}
+t.test(x = ann_urchins, y = con_urchins)
+```
+Between annual urchins(3.91667) and control urchins(3.725806) we see a mean % difference of 4.99482%. This low percentage should suggest they come from the same population. With such a large p-value(0.2536) we are to reject the null hypothesis and this means there is a 25% chance of getting means that are at least this different, if they are drawn from urchin populations with the same mean.
